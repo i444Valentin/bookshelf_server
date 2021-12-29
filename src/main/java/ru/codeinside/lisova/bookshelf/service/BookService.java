@@ -5,6 +5,8 @@ import org.springframework.data.domain.Pageable;
 import ru.codeinside.lisova.bookshelf.model.dto.request.BookRequestDto;
 import ru.codeinside.lisova.bookshelf.model.dto.response.BookResponseDto;
 
+import java.io.File;
+
 public interface BookService {
 
     Page<BookResponseDto> getAll(Pageable pageable);
@@ -12,6 +14,10 @@ public interface BookService {
     BookResponseDto getById(Long id);
 
     BookResponseDto create(BookRequestDto bookDto);
+
+    void read(Long bookId, Long pageId, Long userId);
+
+    void read(Long bookId, Long userId);
 
     BookResponseDto update(Long id, BookRequestDto bookDto, Long userId);
 

@@ -1,5 +1,7 @@
 package ru.codeinside.lisova.bookshelf.service.impl;
 
+import org.apache.pdfbox.multipdf.Splitter;
+import org.apache.pdfbox.pdmodel.PDDocument;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -7,19 +9,22 @@ import org.springframework.stereotype.Service;
 import ru.codeinside.lisova.bookshelf.model.dto.ShortDto;
 import ru.codeinside.lisova.bookshelf.model.dto.request.BookRequestDto;
 import ru.codeinside.lisova.bookshelf.model.dto.response.BookResponseDto;
-import ru.codeinside.lisova.bookshelf.model.entity.Book;
-import ru.codeinside.lisova.bookshelf.model.entity.Share;
-import ru.codeinside.lisova.bookshelf.model.entity.Shelf;
-import ru.codeinside.lisova.bookshelf.model.entity.User;
+import ru.codeinside.lisova.bookshelf.model.entity.*;
 import ru.codeinside.lisova.bookshelf.repository.BookRepository;
 import ru.codeinside.lisova.bookshelf.repository.ShareRepository;
 import ru.codeinside.lisova.bookshelf.repository.UserRepository;
 import ru.codeinside.lisova.bookshelf.service.BookService;
+import ru.codeinside.lisova.bookshelf.service.BookmarkService;
 
 import javax.transaction.Transactional;
+import java.awt.*;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class BookServiceImpl implements BookService {
@@ -27,12 +32,15 @@ public class BookServiceImpl implements BookService {
     private final BookRepository bookRepository;
     private final ShareRepository shareRepository;
     private final UserRepository userRepository;
+    private final BookmarkService bookmarkService;
 
     @Autowired
-    public BookServiceImpl(BookRepository bookRepository, ShareRepository shareRepository, UserRepository userRepository) {
+    public BookServiceImpl(BookRepository bookRepository, ShareRepository shareRepository,
+                           UserRepository userRepository, BookmarkService bookmarkService) {
         this.bookRepository = bookRepository;
         this.shareRepository = shareRepository;
         this.userRepository = userRepository;
+        this.bookmarkService = bookmarkService;
     }
 
     @Override
@@ -51,7 +59,72 @@ public class BookServiceImpl implements BookService {
     @Override
     @Transactional
     public BookResponseDto create(BookRequestDto bookDto) {
+        bookDto.setContent(splitBook(bookDto.getContent()) + ".pdf");
         return toDto(bookRepository.save(toEntity(bookDto)));
+    }
+
+    private String splitBook(String path) {
+        try {
+            File file = new File(path);
+            PDDocument document = PDDocument.load(file);
+            File directory = new File("src/main/resources/" + file.getName()
+                    .replace(".pdf", ""));
+            directory.mkdir();
+
+            Splitter splitter = new Splitter();
+            List<PDDocument> pages = splitter.split(document);
+            Iterator<PDDocument> iterator = pages.listIterator();
+
+            int i = 1;
+            while (iterator.hasNext()) {
+                PDDocument pd = iterator.next();
+                pd.save(directory + "/" + i++ + ".pdf");
+            }
+
+            document.close();
+            return String.valueOf(directory);
+        } catch (IOException e) {
+            throw new RuntimeException("Не удалось разделить файл ");
+        }
+    }
+
+    @Override
+    public void read(Long bookId, Long pageId, Long userId) {
+        Book book = bookRepository.findById(bookId).orElseThrow(() ->
+                new RuntimeException("Книга не найдена id = " + bookId)
+        );
+
+        if ((book.getUser().getId().equals(userId) ||
+                book.getShares().stream()
+                        .map(share -> share.getReceiving().getId())
+                        .collect(Collectors.toList()).contains(userId))
+        ) {
+            bookmarkService.save(pageId, userId, bookId);
+            openBookPage(bookId, pageId);
+        } else {
+            throw new RuntimeException(
+                    String.format("Пользователь id = %d не имеет доступа к книге id = %d", userId, bookId)
+            );
+        }
+    }
+
+    @Override
+    public void read(Long bookId, Long userId) {
+        bookmarkService.getBookmark(userId, bookId).ifPresentOrElse(bookmark ->
+                        read(bookId, bookmark.getSavePage(), userId),
+                () -> read(bookId, 1L, userId));
+    }
+
+    private void openBookPage(Long bookId, Long pageId) {
+        Book book = bookRepository.findById(bookId)
+                .orElseThrow(() -> new RuntimeException("Книга не найдена id = " + bookId));
+
+        try {
+            Desktop.getDesktop().open(new File(book.getContent().replace(".pdf", "")
+                    + "/" + pageId + ".pdf"));
+        } catch (IOException e) {
+            throw new RuntimeException("Не удалось прочитать файл ");
+        }
     }
 
     @Override
@@ -162,20 +235,6 @@ public class BookServiceImpl implements BookService {
 
     private BookResponseDto toDto(Book book) {
 
-        List<Share> shares = Optional.ofNullable(book).map(Book::getShares)
-                .orElseThrow(() -> new RuntimeException("Share у книги не найдены"));
-
-        List<ShortDto> sharesShortDtoList = new ArrayList<>();
-
-        if (shares != null) {
-            for (Share share : shares) {
-                sharesShortDtoList.add(ShortDto.builder()
-                        .id(share.getId())
-                        .name("Предоставленная книга: " + share.getBook().getTitle())
-                        .build());
-            }
-        }
-
         Shelf bookShelf = book.getShelf();
         ShortDto shelf = bookShelf != null ? ShortDto.builder()
                 .id(bookShelf.getId())
@@ -183,7 +242,7 @@ public class BookServiceImpl implements BookService {
                 .build()
                 : null;
 
-        return BookResponseDto.builder()
+        BookResponseDto.BookResponseDtoBuilder builder = BookResponseDto.builder()
                 .id(book.getId())
                 .title(book.getTitle())
                 .content(book.getContent())
@@ -191,8 +250,19 @@ public class BookServiceImpl implements BookService {
                         .id(book.getUser().getId())
                         .name(book.getUser().getName())
                         .build())
-                .shelf(shelf)
-                .shares(sharesShortDtoList)
-                .build();
+                .shelf(shelf);
+
+        List<Share> shares = Optional.of(book).map(Book::getShares).orElse(new ArrayList<>());
+        if (!shares.isEmpty()) {
+            List<ShortDto> sharesShortDtoList = shares.stream().map(share ->
+                    ShortDto.builder()
+                            .id(share.getId())
+                            .name("Предоставленная книга: " + share.getBook().getTitle())
+                            .build()).collect(Collectors.toList());
+
+            builder.shares(sharesShortDtoList);
+        }
+
+        return builder.build();
     }
 }

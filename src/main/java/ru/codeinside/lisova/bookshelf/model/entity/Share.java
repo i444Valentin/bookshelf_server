@@ -31,7 +31,7 @@ public class Share {
     private Book book;
 
     @ManyToOne
-    @JoinColumn(name = "receiving_id")
+    @JoinColumn(name = "receiving_id") //TODO rename
     private User receiving;
 
     @ManyToOne

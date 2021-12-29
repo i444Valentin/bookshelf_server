@@ -26,6 +26,9 @@ public class Book {
     @Column(name = "content", nullable = false)
     private String content;
 
+//    @Column(name = "save_page")
+//    private Long savePage;
+
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;

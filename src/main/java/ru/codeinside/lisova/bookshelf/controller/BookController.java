@@ -29,6 +29,18 @@ public class BookController {
         return bookService.getById(id);
     }
 
+    @GetMapping("/{bookId}/content")
+    public void read(@PathVariable(name = "bookId") Long bookId,
+                                @RequestParam(name = "page", required = false) Long page,
+                                @RequestParam(name = "userId") Long userId) {
+
+        if(page != null) {
+            bookService.read(bookId, page, userId);
+        } else {
+            bookService.read(bookId, userId);
+        }
+    }
+
     @PostMapping
     public BookResponseDto create(@RequestBody BookRequestDto bookDto) {
         return bookService.create(bookDto);
@@ -36,8 +48,9 @@ public class BookController {
 
     @PutMapping("/{id}")
     public BookResponseDto update(@PathVariable(name = "id") Long id,
-                                  @RequestBody BookRequestDto bookDto,
-                                  @RequestBody Long userId) {
+                                  @RequestParam Long userId,
+
+                                  @RequestBody BookRequestDto bookDto) {
         return bookService.update(id, bookDto, userId);
     }
 
@@ -47,9 +60,9 @@ public class BookController {
         bookService.delete(bookId, userId);
     }
 
-    @PutMapping("/{bookId}/shelf")
+    @PutMapping("/{bookId}/shelf/{shelfId}")
     public BookResponseDto changeShelf(@PathVariable(name = "bookId") Long bookId,
-                                       @RequestParam(name = "shelfId", required = false) Long shelfId,
+                                       @PathVariable(name = "shelfId", required = false) Long shelfId,
                                        @RequestParam Long userId) {
         return bookService.changeShelf(bookId, shelfId, userId);
     }
