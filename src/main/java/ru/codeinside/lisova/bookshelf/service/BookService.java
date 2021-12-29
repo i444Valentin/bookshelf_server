@@ -5,8 +5,6 @@ import org.springframework.data.domain.Pageable;
 import ru.codeinside.lisova.bookshelf.model.dto.request.BookRequestDto;
 import ru.codeinside.lisova.bookshelf.model.dto.response.BookResponseDto;
 
-import java.io.File;
-
 public interface BookService {
 
     Page<BookResponseDto> getAll(Pageable pageable);

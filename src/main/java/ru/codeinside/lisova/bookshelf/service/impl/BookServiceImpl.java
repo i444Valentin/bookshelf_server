@@ -9,7 +9,10 @@ import org.springframework.stereotype.Service;
 import ru.codeinside.lisova.bookshelf.model.dto.ShortDto;
 import ru.codeinside.lisova.bookshelf.model.dto.request.BookRequestDto;
 import ru.codeinside.lisova.bookshelf.model.dto.response.BookResponseDto;
-import ru.codeinside.lisova.bookshelf.model.entity.*;
+import ru.codeinside.lisova.bookshelf.model.entity.Book;
+import ru.codeinside.lisova.bookshelf.model.entity.Share;
+import ru.codeinside.lisova.bookshelf.model.entity.Shelf;
+import ru.codeinside.lisova.bookshelf.model.entity.User;
 import ru.codeinside.lisova.bookshelf.repository.BookRepository;
 import ru.codeinside.lisova.bookshelf.repository.ShareRepository;
 import ru.codeinside.lisova.bookshelf.repository.UserRepository;
@@ -59,6 +62,9 @@ public class BookServiceImpl implements BookService {
     @Override
     @Transactional
     public BookResponseDto create(BookRequestDto bookDto) {
+        userRepository.findById(bookDto.getUserId())
+                .orElseThrow(() -> new RuntimeException("Пользователь не найден id = " + bookDto.getUserId()));
+
         bookDto.setContent(splitBook(bookDto.getContent()) + ".pdf");
         return toDto(bookRepository.save(toEntity(bookDto)));
     }
@@ -96,7 +102,7 @@ public class BookServiceImpl implements BookService {
 
         if ((book.getUser().getId().equals(userId) ||
                 book.getShares().stream()
-                        .map(share -> share.getReceiving().getId())
+                        .map(share -> share.getReceiver().getId())
                         .collect(Collectors.toList()).contains(userId))
         ) {
             bookmarkService.save(pageId, userId, bookId);
@@ -156,23 +162,19 @@ public class BookServiceImpl implements BookService {
             );
         }
 
-        List<ShortDto> sharesShortDtoList = Optional.ofNullable(book.getShares())
-                .orElseThrow(() -> new RuntimeException(String.format("Shares не найдены у книги id = %d", bookId)));
-
-        List<Share> bookShares = new ArrayList<>();
-
-//        if (sharesShortDtoList != null) {
-        for (ShortDto shortDto : sharesShortDtoList) {
-            bookShares.add(Share.builder()
-                    .id(shortDto.getId())
-                    .book(Book.builder().id(book.getId()).build())
-                    .build());
-        }
-//        }
-
         bookRepository.deleteById(book.getId());
-        shareRepository.deleteAll(bookShares);
 
+        List<ShortDto> sharesShortDtoList = Optional.of(book).map(BookResponseDto::getShares)
+                .orElse(new ArrayList<>());
+
+        if (!sharesShortDtoList.isEmpty()) {
+            List<Share> bookShares = sharesShortDtoList.stream().map(shortDto ->
+                    Share.builder()
+                            .id(shortDto.getId())
+                            .book(Book.builder().id(book.getId()).build())
+                            .build()).collect(Collectors.toList());
+            shareRepository.deleteAll(bookShares);
+        }
     }
 
     @Override
@@ -184,17 +186,15 @@ public class BookServiceImpl implements BookService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Пользователь не найден id = " + bookId));
 
-//        Optional.ofNullable(shelfId).orElseThrow(
-//                () -> new RuntimeException("Полка не найдена id = " + shelfId)
-//        );
-
-        if (shelfId != null) {
+        Optional.of(shelfId).ifPresentOrElse(shelf -> {
             boolean isNotFound = true;
-            for (Shelf shelf : user.getShelves()) {
-                if (shelf.getId().equals(shelfId)) {
-                    isNotFound = false;
-                    break;
-                }
+
+            List<Shelf> shelves = Optional.of(user)
+                    .map(User::getShelves)
+                    .orElse(new ArrayList<>());
+
+            if (shelves.stream().map(Shelf::getId).collect(Collectors.toList()).contains(shelfId)) {
+                isNotFound = false;
             }
 
             if (!book.getUser().getId().equals(userId) || isNotFound) {
@@ -206,9 +206,7 @@ public class BookServiceImpl implements BookService {
             book.setShelf(Shelf.builder()
                     .id(shelfId)
                     .build());
-        } else {
-            book.setShelf(null);
-        }
+        }, () -> book.setShelf(null));
 
         return toDto(bookRepository.save(book));
     }
@@ -219,10 +217,6 @@ public class BookServiceImpl implements BookService {
         List<Book> booksFromShelf = bookRepository.findByShelf_Id(shelfId);
 
         booksFromShelf.forEach(book -> book.setShelf(null));
-
-//        for (Book book : booksFromShelf) {
-//            book.setShelf(null);
-//        }
     }
 
     private Book toEntity(BookRequestDto bookResponseDto) {
@@ -252,7 +246,10 @@ public class BookServiceImpl implements BookService {
                         .build())
                 .shelf(shelf);
 
-        List<Share> shares = Optional.of(book).map(Book::getShares).orElse(new ArrayList<>());
+        List<Share> shares = Optional.of(book)
+                .map(Book::getShares)
+                .orElse(new ArrayList<>());
+
         if (!shares.isEmpty()) {
             List<ShortDto> sharesShortDtoList = shares.stream().map(share ->
                     ShortDto.builder()

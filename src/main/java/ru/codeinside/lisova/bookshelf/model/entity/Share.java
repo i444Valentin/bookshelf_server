@@ -31,8 +31,8 @@ public class Share {
     private Book book;
 
     @ManyToOne
-    @JoinColumn(name = "receiving_id") //TODO rename
-    private User receiving;
+    @JoinColumn(name = "receiver_id")
+    private User receiver;
 
     @ManyToOne
     @JoinColumn(name = "owner_id")

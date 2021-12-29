@@ -6,12 +6,12 @@ import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfi
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @EnableScheduling
-@SpringBootApplication(exclude = {SecurityAutoConfiguration.class }) // чтобы пароли не генерировал
+@SpringBootApplication(exclude = {SecurityAutoConfiguration.class})
 public class BookshelfApplication {
 
-	public static void main(String[] args) {
-		System.setProperty("java.awt.headless", "false"); // чтобы открывался файл в браузере
-		SpringApplication.run(BookshelfApplication.class, args);
-	}
+    public static void main(String[] args) {
+        System.setProperty("java.awt.headless", "false");
+        SpringApplication.run(BookshelfApplication.class, args);
+    }
 
 }

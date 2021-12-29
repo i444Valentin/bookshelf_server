@@ -8,8 +8,6 @@ import ru.codeinside.lisova.bookshelf.model.dto.request.ShareRequestDto;
 import ru.codeinside.lisova.bookshelf.model.dto.response.ShareResponseDto;
 import ru.codeinside.lisova.bookshelf.service.ShareService;
 
-import java.time.LocalDate;
-
 @RestController
 @RequestMapping("/shares")
 public class ShareController {
@@ -31,8 +29,7 @@ public class ShareController {
     }
 
     @PutMapping("/{id}")
-    public ShareResponseDto update(@PathVariable(name = "id") Long id,
-                                   @RequestBody ShareRequestDto shareDto) {
+    public ShareResponseDto update(@PathVariable(name = "id") Long id, @RequestBody ShareRequestDto shareDto) {
         return shareService.update(id, shareDto);
     }
 

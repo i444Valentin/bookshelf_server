@@ -4,7 +4,6 @@ import lombok.*;
 import ru.codeinside.lisova.bookshelf.model.dto.ShortDto;
 
 import java.util.List;
-import java.util.Optional;
 
 @Getter
 @Setter

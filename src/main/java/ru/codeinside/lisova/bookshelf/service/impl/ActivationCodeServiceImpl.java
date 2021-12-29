@@ -14,6 +14,7 @@ import javax.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class ActivationCodeServiceImpl implements ActivationCodeService {
@@ -23,7 +24,8 @@ public class ActivationCodeServiceImpl implements ActivationCodeService {
     private final EmailService emailService;
 
     @Autowired
-    public ActivationCodeServiceImpl(ActivationCodeRepository activationCodeRepository, UserRepository userRepository, EmailService emailService) {
+    public ActivationCodeServiceImpl(ActivationCodeRepository activationCodeRepository,
+                                     UserRepository userRepository, EmailService emailService) {
         this.activationCodeRepository = activationCodeRepository;
         this.userRepository = userRepository;
         this.emailService = emailService;
@@ -39,11 +41,12 @@ public class ActivationCodeServiceImpl implements ActivationCodeService {
             emailService.sendMessage(email, code.getCode());
         }, () -> {
             Integer code = (int) (1000 + Math.random() * 8999);
-            activationCodeRepository.save(ActivationCode.builder()
-                    .email(email)
-                    .code(code)
-                    .timestamp(LocalDateTime.now())
-                    .build());
+            activationCodeRepository.save(
+                    ActivationCode.builder()
+                            .email(email)
+                            .code(code)
+                            .timestamp(LocalDateTime.now())
+                            .build());
 
             emailService.sendMessage(email, code);
         });
@@ -54,7 +57,7 @@ public class ActivationCodeServiceImpl implements ActivationCodeService {
     @Transactional
     public void acceptUser(Integer code, Long userId) {
         ActivationCode activationCode = activationCodeRepository.findByCode(code)
-                .orElseThrow(() -> new RuntimeException(String.format("Пользователь не найден id = %d", userId)));
+                .orElseThrow(() -> new RuntimeException(String.format("Код не найден id = %d", code)));
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException(String.format("Пользователь не найден id = %d", userId)));
@@ -74,13 +77,9 @@ public class ActivationCodeServiceImpl implements ActivationCodeService {
     public void deleteCode() {
         List<ActivationCode> codes = activationCodeRepository.findByTimestampBefore(LocalDateTime.now());
 
-        System.out.printf("Код id = %s был удалён%n",
+        System.out.printf("Список кодов активации был удалён %s",
                 codes.stream().peek(code -> activationCodeRepository.deleteById(code.getId()))
+                        .collect(Collectors.toList())
         );
-
-//        for (ActivationCode code : codes) {
-//            activationCodeRepository.deleteById(code.getId());
-//            System.out.printf(("Код id = %d был удалён%n"), code.getId());
-//        }
     }
 }

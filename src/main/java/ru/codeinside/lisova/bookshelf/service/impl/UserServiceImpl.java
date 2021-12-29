@@ -24,6 +24,7 @@ import javax.transaction.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -67,7 +68,9 @@ public class UserServiceImpl implements UserService {
 
         userRepository.findByEmail(userDto.getEmail())
                 .ifPresent(user -> {
-                    throw new RuntimeException(String.format("Пользователь с email = %s  уже есть в системе", userDto.getEmail()));
+                    throw new RuntimeException(
+                            String.format("Пользователь с email = %s  уже есть в системе", userDto.getEmail())
+                    );
                 });
 
         User user = toEntity(userDto);
@@ -102,62 +105,60 @@ public class UserServiceImpl implements UserService {
     public void delete(Long id) {
         var user = getById(id);
 
-        List<ShareResponseDto> sharesShortDtoList = Optional.ofNullable(user.getMyShares())
-                .orElseThrow(() -> new RuntimeException("Share у пользователя не найдны"));
+        List<ShareResponseDto> sharesShortDtoList = Optional.of(user).map(UserResponseDto::getMyShares)
+                .orElse(new ArrayList<>());
 
-        List<Share> myShares = new ArrayList<>();
+        if (!sharesShortDtoList.isEmpty()) {
+            List<Share> myShares = sharesShortDtoList.stream().map(shareResponseDto ->
+                    Share.builder()
+                            .id(shareResponseDto.getId())
+                            .dateEnd(shareResponseDto.getDateEnd())
+                            .type(shareResponseDto.getType())
+                            .book(Book.builder()
+                                    .id(shareResponseDto.getBook().getId())
+                                    .title(shareResponseDto.getBook().getName())
+                                    .build())
+                            .receiver(User.builder()
+                                    .id(shareResponseDto.getReceiving().getId())
+                                    .name(shareResponseDto.getReceiving().getName())
+                                    .build())
+                            .owner(User.builder()
+                                    .id(shareResponseDto.getOwner().getId())
+                                    .name(shareResponseDto.getOwner().getName())
+                                    .build())
+                            .build()).collect(Collectors.toList());
 
-        if (sharesShortDtoList != null) {
-            for (ShareResponseDto shareDto : sharesShortDtoList) {
-                myShares.add(Share.builder()
-                        .id(shareDto.getId())
-                        .dateEnd(shareDto.getDateEnd())
-                        .type(shareDto.getType())
-                        .book(Book.builder()
-                                .id(shareDto.getBook().getId())
-                                .title(shareDto.getBook().getName())
-                                .build())
-                        .receiving(User.builder()
-                                .id(shareDto.getReceiving().getId())
-                                .name(shareDto.getReceiving().getName())
-                                .build())
-                        .owner(User.builder()
-                                .id(shareDto.getOwner().getId())
-                                .name(shareDto.getOwner().getName())
-                                .build())
-                        .build());
-            }
+            shareRepository.deleteAll(myShares);
         }
 
-        List<ShortDto> booksShortDtoList = Optional.ofNullable(user.getBooks())
-                .orElseThrow(() -> new RuntimeException("Книги у пользователя не найдены"));
-        List<Book> userBooks = new ArrayList<>();
 
-        if (booksShortDtoList != null) {
-            for (ShortDto shortDto : booksShortDtoList) {
-                userBooks.add(Book.builder()
-                        .id(shortDto.getId())
-                        .title(shortDto.getName())
-                        .build());
-            }
+        List<ShortDto> booksShortDtoList = Optional.of(user).map(UserResponseDto::getBooks)
+                .orElse(new ArrayList<>());
+
+        if (!booksShortDtoList.isEmpty()) {
+            List<Book> userBooks = booksShortDtoList.stream().map(shortDto ->
+                    Book.builder()
+                            .id(shortDto.getId())
+                            .title(shortDto.getName())
+                            .build()).collect(Collectors.toList());
+
+            bookRepository.deleteAll(userBooks);
         }
 
-        List<ShortDto> shelvesShortDtoList = Optional.ofNullable(user.getShelves())
-                .orElseThrow(() -> new RuntimeException("Полки у пользователя не найдены"));
-        List<Shelf> userShelves = new ArrayList<>();
 
-        if (shelvesShortDtoList != null) {
-            for (ShortDto shortDto : shelvesShortDtoList) {
-                userShelves.add(Shelf.builder()
-                        .id(shortDto.getId())
-                        .name(shortDto.getName())
-                        .build());
-            }
+        List<ShortDto> shelvesShortDtoList = Optional.of(user).map(UserResponseDto::getShelves)
+                .orElse(new ArrayList<>());
+
+        if (!shelvesShortDtoList.isEmpty()) {
+            List<Shelf> userShelves = shelvesShortDtoList.stream().map(shortDto ->
+                    Shelf.builder()
+                            .id(shortDto.getId())
+                            .name(shortDto.getName())
+                            .build()).collect(Collectors.toList());
+
+            shelfRepository.deleteAll(userShelves);
         }
 
-        shareRepository.deleteAll(myShares);
-        bookRepository.deleteAll(userBooks);
-        shelfRepository.deleteAll(userShelves);
         userRepository.deleteById(user.getId());
     }
 
@@ -170,97 +171,89 @@ public class UserServiceImpl implements UserService {
     }
 
     private UserResponseDto toDto(User user) {
-
-        List<Shelf> shelves = Optional.ofNullable(user.getShelves())
-                .orElseThrow(() -> new RuntimeException("Полки у пользователя не найдены"));
-
-        List<ShortDto> shelvesShortDtoList = new ArrayList<>();
-
-        if (shelves != null) {
-            for (Shelf shelf : shelves) {
-                shelvesShortDtoList.add(ShortDto.builder()
-                        .id(shelf.getId())
-                        .name(shelf.getName())
-                        .build());
-            }
-        }
-
-        List<Book> books = Optional.ofNullable(user.getBooks())
-                .orElseThrow(() -> new RuntimeException("Книги у пользователя не найдены"));
-        List<ShortDto> booksShortDtoList = new ArrayList<>();
-
-        if (books != null) {
-            for (Book book : books) {
-                booksShortDtoList.add(ShortDto.builder()
-                        .id(book.getId())
-                        .name(book.getTitle())
-                        .build());
-            }
-        }
-
-        List<Share> shares = Optional.ofNullable(user.getShares())
-                .orElseThrow(() -> new RuntimeException("Share у пользователя не найдны"));
-
-        List<ShareResponseDto> sharesShortDtoList = new ArrayList<>();
-
-        if (shares != null) {
-            for (Share share : shares) {
-                sharesShortDtoList.add(ShareResponseDto.builder()
-                        .id(share.getId())
-                        .dateEnd(share.getDateEnd())
-                        .type(share.getType())
-                        .book(ShortDto.builder()
-                                .id(share.getBook().getId())
-                                .name(share.getBook().getTitle())
-                                .build())
-                        .receiving(ShortDto.builder()
-                                .id(share.getReceiving().getId())
-                                .name(share.getReceiving().getName())
-                                .build())
-                        .owner(ShortDto.builder()
-                                .id(share.getOwner().getId())
-                                .name(share.getOwner().getName())
-                                .build())
-                        .build());
-            }
-        }
-
-        List<Share> myShares = Optional.ofNullable(user.getMyShares())
-                .orElseThrow(() -> new RuntimeException("Собственные Share у пользователя не найдны"));
-        List<ShareResponseDto> mySharesShortDtoList = new ArrayList<>();
-
-        if (myShares != null) {
-            for (Share share : myShares) {
-                mySharesShortDtoList.add(ShareResponseDto.builder()
-                        .id(share.getId())
-                        .dateEnd(share.getDateEnd())
-                        .type(share.getType())
-                        .book(ShortDto.builder()
-                                .id(share.getBook().getId())
-                                .name(share.getBook().getTitle())
-                                .build())
-                        .receiving(ShortDto.builder()
-                                .id(share.getReceiving().getId())
-                                .name(share.getReceiving().getName())
-                                .build())
-                        .owner(ShortDto.builder()
-                                .id(share.getOwner().getId())
-                                .name(share.getOwner().getName())
-                                .build())
-                        .build());
-            }
-        }
-
-        return UserResponseDto.builder()
+        UserResponseDto.UserResponseDtoBuilder builder = UserResponseDto.builder()
                 .id(user.getId())
                 .name(user.getName())
                 .email(user.getEmail())
                 .password(user.getPassword())
-                .status(user.getStatus())
-                .shelves(shelvesShortDtoList)
-                .books(booksShortDtoList)
-                .shares(sharesShortDtoList)
-                .myShares(mySharesShortDtoList)
-                .build();
+                .status(user.getStatus());
+
+        List<Shelf> shelves = Optional.of(user)
+                .map(User::getShelves)
+                .orElse(new ArrayList<>());
+        if (!shelves.isEmpty()) {
+            List<ShortDto> shelvesShortDtoList = shelves.stream().map(shelf ->
+                    ShortDto.builder()
+                            .id(shelf.getId())
+                            .name(shelf.getName())
+                            .build()).collect(Collectors.toList());
+
+            builder.shelves(shelvesShortDtoList);
+        }
+
+        List<Book> books = Optional.of(user)
+                .map(User::getBooks)
+                .orElse(new ArrayList<>());
+        if (!books.isEmpty()) {
+            List<ShortDto> booksShortDtoList = books.stream().map(book ->
+                    ShortDto.builder()
+                            .id(book.getId())
+                            .name(book.getTitle())
+                            .build()).collect(Collectors.toList());
+
+            builder.books(booksShortDtoList);
+        }
+
+        List<Share> shares = Optional.of(user).map(User::getShares)
+                .orElse(new ArrayList<>());
+        if (!shares.isEmpty()) {
+            List<ShareResponseDto> sharesShortDtoList = shares.stream().map(share ->
+                    ShareResponseDto.builder()
+                            .id(share.getId())
+                            .dateEnd(share.getDateEnd())
+                            .type(share.getType())
+                            .book(ShortDto.builder()
+                                    .id(share.getBook().getId())
+                                    .name(share.getBook().getTitle())
+                                    .build())
+                            .receiving(ShortDto.builder()
+                                    .id(share.getReceiver().getId())
+                                    .name(share.getReceiver().getName())
+                                    .build())
+                            .owner(ShortDto.builder()
+                                    .id(share.getOwner().getId())
+                                    .name(share.getOwner().getName())
+                                    .build())
+                            .build()).collect(Collectors.toList());
+
+            builder.shares(sharesShortDtoList);
+        }
+
+        List<Share> myShares = Optional.of(user).map(User::getMyShares)
+                .orElse(new ArrayList<>());
+        if (!myShares.isEmpty()) {
+            List<ShareResponseDto> mySharesShortDtoList = myShares.stream().map(share ->
+                    ShareResponseDto.builder()
+                            .id(share.getId())
+                            .dateEnd(share.getDateEnd())
+                            .type(share.getType())
+                            .book(ShortDto.builder()
+                                    .id(share.getBook().getId())
+                                    .name(share.getBook().getTitle())
+                                    .build())
+                            .receiving(ShortDto.builder()
+                                    .id(share.getReceiver().getId())
+                                    .name(share.getReceiver().getName())
+                                    .build())
+                            .owner(ShortDto.builder()
+                                    .id(share.getOwner().getId())
+                                    .name(share.getOwner().getName())
+                                    .build())
+                            .build()).collect(Collectors.toList());
+
+            builder.myShares(mySharesShortDtoList);
+        }
+
+        return builder.build();
     }
 }

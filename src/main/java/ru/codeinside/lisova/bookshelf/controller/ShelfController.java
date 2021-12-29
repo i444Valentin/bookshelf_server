@@ -41,8 +41,7 @@ public class ShelfController {
     }
 
     @DeleteMapping(path = "/{id}")
-    public void delete(@PathVariable(name = "id") Long shelfId,
-                       @RequestParam Long userId) {
+    public void delete(@PathVariable(name = "id") Long shelfId, @RequestParam Long userId) {
         shelfService.delete(shelfId, userId);
     }
 }

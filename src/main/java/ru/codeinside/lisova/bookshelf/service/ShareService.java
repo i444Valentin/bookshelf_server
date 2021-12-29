@@ -5,8 +5,6 @@ import org.springframework.data.domain.Pageable;
 import ru.codeinside.lisova.bookshelf.model.dto.request.ShareRequestDto;
 import ru.codeinside.lisova.bookshelf.model.dto.response.ShareResponseDto;
 
-import java.time.LocalDate;
-
 public interface ShareService {
 
     Page<ShareResponseDto> getAll(Pageable pageable);

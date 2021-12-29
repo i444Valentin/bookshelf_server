@@ -33,7 +33,8 @@ public class ShareServiceImpl implements ShareService {
     private final EmailService emailService;
 
     @Autowired
-    public ShareServiceImpl(ShareRepository shareRepository, UserRepository userRepository, BookRepository bookRepository, EmailService emailService) {
+    public ShareServiceImpl(ShareRepository shareRepository, UserRepository userRepository,
+                            BookRepository bookRepository, EmailService emailService) {
         this.shareRepository = shareRepository;
         this.userRepository = userRepository;
         this.bookRepository = bookRepository;
@@ -68,10 +69,6 @@ public class ShareServiceImpl implements ShareService {
             Optional.ofNullable(shareDto.getDateEnd())
                     .orElseThrow(() -> new RuntimeException("Отсутствует дата при типе TEMPORARY"));
 
-//            if (shareDto.getDateEnd() == null) {
-//                throw new IllegalArgumentException("Отсутствует дата при типе TEMPORARY");
-//            }
-
             share.setDateEnd(shareDto.getDateEnd());
         }
 
@@ -86,7 +83,7 @@ public class ShareServiceImpl implements ShareService {
 
         User owner = userRepository.findById(shareRequestDto.getOwnerId())
                 .orElseThrow(() -> new RuntimeException(
-                        String.format("Пользователь не найден id = %d", shareRequestDto.getOwnerId()))
+                        String.format("Владелец не найден id = %d", shareRequestDto.getOwnerId()))
                 );
 
         Book book = bookRepository.findByIdAndUser_Id(shareRequestDto.getBookId(), owner.getId())
@@ -99,10 +96,6 @@ public class ShareServiceImpl implements ShareService {
                         dto.getType().equals(UseType.TEMPORARY) && Objects.nonNull(dto.getDateEnd()))
                 .orElseThrow(() -> new RuntimeException("Отсутствует дата при типе TEMPORARY"));
 
-//        if (shareRequestDto.getType().equals(UseType.TEMPORARY) && shareRequestDto.getDateEnd() == null) {
-//            throw new RuntimeException("Отсутствует дата при типе TEMPORARY");
-//        }
-
         emailService.sendShareRequest(owner.getEmail(), requester.getEmail(),
                 book.getTitle(), shareRequestDto.getType(), shareRequestDto.getDateEnd());
     }
@@ -112,12 +105,10 @@ public class ShareServiceImpl implements ShareService {
     @Transactional
     public ShareResponseDto shareBook(ShareRequestDto shareRequestDto) {
         Share share = toEntity(shareRequestDto);
+
         if (shareRequestDto.getType() == UseType.PERMANENT) {
             share.setDateEnd(null);
         } else {
-//            if (shareRequestDto.getDateEnd() == null) {
-//                throw new IllegalArgumentException("Отсутствует дата при типе TEMPORARY");
-//            }
             Optional.ofNullable(shareRequestDto.getDateEnd())
                     .orElseThrow(() -> new RuntimeException("Отсутствует дата при типе TEMPORARY"));
 
@@ -137,11 +128,13 @@ public class ShareServiceImpl implements ShareService {
     @Transactional
     public void deleteShare() {
         List<Share> shares = shareRepository.findByDateEndBefore(LocalDate.now());
+
         System.out.printf("Список share будет удалён %s",
                 shares.stream()
                         .map(Share::getId)
                         .collect(Collectors.toList())
         );
+
         shares.forEach(shareRepository::delete);
     }
 
@@ -150,7 +143,7 @@ public class ShareServiceImpl implements ShareService {
                 .dateEnd(shareRequestDto.getDateEnd())
                 .type(shareRequestDto.getType())
                 .book(Book.builder().id(shareRequestDto.getBookId()).build())
-                .receiving(User.builder().id(shareRequestDto.getReceivingId()).build())
+                .receiver(User.builder().id(shareRequestDto.getReceivingId()).build())
                 .owner(User.builder().id(shareRequestDto.getOwnerId()).build())
                 .build();
     }
@@ -165,8 +158,8 @@ public class ShareServiceImpl implements ShareService {
                         .name(share.getBook().getTitle())
                         .build())
                 .receiving(ShortDto.builder()
-                        .id(share.getReceiving().getId())
-                        .name(share.getReceiving().getName())
+                        .id(share.getReceiver().getId())
+                        .name(share.getReceiver().getName())
                         .build())
                 .owner(ShortDto.builder()
                         .id(share.getOwner().getId())

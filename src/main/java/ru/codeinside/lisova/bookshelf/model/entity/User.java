@@ -39,9 +39,9 @@ public class User {
     @OneToMany(mappedBy = "user")
     private List<Book> books = new ArrayList<>();
 
-    @OneToMany(mappedBy = "receiving")
-    private List<Share> shares = new ArrayList<>();//те, которые дали (чужие книги)
+    @OneToMany(mappedBy = "receiver")
+    private List<Share> shares = new ArrayList<>();
 
     @OneToMany(mappedBy = "owner")
-    private List<Share> myShares = new ArrayList<>();//те, которые сам дал (мои книги)
+    private List<Share> myShares = new ArrayList<>();
 }

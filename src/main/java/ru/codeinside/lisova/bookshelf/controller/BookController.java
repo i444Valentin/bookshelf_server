@@ -31,10 +31,10 @@ public class BookController {
 
     @GetMapping("/{bookId}/content")
     public void read(@PathVariable(name = "bookId") Long bookId,
-                                @RequestParam(name = "page", required = false) Long page,
-                                @RequestParam(name = "userId") Long userId) {
+                     @RequestParam(name = "page", required = false) Long page,
+                     @RequestParam(name = "userId") Long userId) {
 
-        if(page != null) {
+        if (page != null) {
             bookService.read(bookId, page, userId);
         } else {
             bookService.read(bookId, userId);
@@ -49,7 +49,6 @@ public class BookController {
     @PutMapping("/{id}")
     public BookResponseDto update(@PathVariable(name = "id") Long id,
                                   @RequestParam Long userId,
-
                                   @RequestBody BookRequestDto bookDto) {
         return bookService.update(id, bookDto, userId);
     }

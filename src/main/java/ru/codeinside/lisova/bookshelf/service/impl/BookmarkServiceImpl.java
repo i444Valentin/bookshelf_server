@@ -21,12 +21,6 @@ public class BookmarkServiceImpl implements BookmarkService {
 
     @Override
     @Transactional
-    public Bookmark create(Bookmark bookmark) {
-        return bookmarkRepository.save(bookmark);
-    }
-
-    @Override
-    @Transactional
     public Optional<Bookmark> getBookmark(Long userId, Long bookId) {
         return bookmarkRepository.findByUserBookId_UserIdAndUserBookId_BookId(userId, bookId);
     }
@@ -34,28 +28,13 @@ public class BookmarkServiceImpl implements BookmarkService {
     @Override
     @Transactional
     public Bookmark save(Long pageId, Long userId, Long bookId) {
-        return bookmarkRepository.save(Bookmark.builder()
-                .savePage(pageId)
-                .userBookId(Bookmark.UserBookId.builder()
-                        .userId(userId)
-                        .bookId(bookId)
-                        .build())
-                .build());
+        return bookmarkRepository.save(
+                Bookmark.builder()
+                        .savePage(pageId)
+                        .userBookId(Bookmark.UserBookId.builder()
+                                .userId(userId)
+                                .bookId(bookId)
+                                .build())
+                        .build());
     }
-
-//    private Bookmark toEntity(BookmarkRequestDto bookmarkRequestDto) {
-//        return Bookmark.builder()
-//                .userBookId(Bookmark.UserBookId.builder()
-//
-//                        .build())
-//                .savePage(bookmarkRequestDto.getSavePage())
-//                .build();
-//    }
-//
-//    private BookmarkResponseDto toDto(Bookmark bookmark) {
-//        return BookmarkResponseDto.builder()
-//                .userBookId(bookmark.getUserBookId())
-//                .savePage(bookmark.getSavePage())
-//                .build();
-//    }
 }

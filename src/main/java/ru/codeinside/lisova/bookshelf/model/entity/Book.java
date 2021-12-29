@@ -5,7 +5,6 @@ import lombok.*;
 import javax.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Entity
 @Getter
@@ -25,9 +24,6 @@ public class Book {
 
     @Column(name = "content", nullable = false)
     private String content;
-
-//    @Column(name = "save_page")
-//    private Long savePage;
 
     @ManyToOne
     @JoinColumn(name = "user_id")

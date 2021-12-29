@@ -18,6 +18,7 @@ import javax.transaction.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class ShelfServiceImpl implements ShelfService {
@@ -55,11 +56,13 @@ public class ShelfServiceImpl implements ShelfService {
     public ShelfResponseDto update(Long shelfId, ShelfRequestDto shelfDto, Long userId) {
         Shelf shelf = shelfRepository.findById(shelfId)
                 .orElseThrow(() -> new RuntimeException(String.format("Полка не найдена id = %d", shelfId)));
+
         if (!shelf.getUser().getId().equals(userId)) {
             throw new IllegalArgumentException(
                     String.format("Пользователь id = %d не имеет доступа к полке id = %d", userId, shelfId)
             );
         }
+
         shelf.setName(shelfDto.getName());
         return toDto(shelfRepository.save(shelf));
     }
@@ -68,12 +71,13 @@ public class ShelfServiceImpl implements ShelfService {
     @Transactional
     public void delete(Long shelfId, Long userId) {
         var shelf = getById(shelfId);
+
         if (!shelf.getUser().getId().equals(userId)) {
             throw new IllegalArgumentException(
                     String.format("Пользователь id = %d не имеет доступа к полке id = %d", userId, shelfId)
             );
         }
-        
+
         bookService.removeFromShelf(shelfId);
         shelfRepository.deleteById(shelf.getId());
     }
@@ -86,32 +90,27 @@ public class ShelfServiceImpl implements ShelfService {
     }
 
     private ShelfResponseDto toDto(Shelf shelf) {
-
-        List<Book> books = Optional.ofNullable(shelf).map(Shelf::getBooks)
-                .orElseThrow(() -> new RuntimeException("Книги на полке не найдены"));
-
-        List<ShortDto> bookShortDtoList = new ArrayList<>();
-
-        if (books != null) {
-
-            for (Book book : books) {
-                bookShortDtoList.add(
-                        ShortDto.builder()
-                                .id(book.getId())
-                                .name(book.getTitle())
-                                .build()
-                );
-            }
-        }
-
-        return ShelfResponseDto.builder()
+        ShelfResponseDto.ShelfResponseDtoBuilder builder = ShelfResponseDto.builder()
                 .id(shelf.getId())
                 .name(shelf.getName())
                 .user(ShortDto.builder()
                         .id(shelf.getUser().getId())
                         .name(shelf.getUser().getName())
-                        .build())
-                .books(bookShortDtoList)
-                .build();
+                        .build());
+
+        List<Book> books = Optional.of(shelf).map(Shelf::getBooks)
+                .orElse(new ArrayList<>());
+
+        if (!books.isEmpty()) {
+            List<ShortDto> bookShortDtoList = books.stream().map(book ->
+                    ShortDto.builder()
+                            .id(book.getId())
+                            .name(book.getTitle())
+                            .build()).collect(Collectors.toList());
+
+            builder.books(bookShortDtoList);
+        }
+
+        return builder.build();
     }
 }
